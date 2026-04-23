@@ -12,6 +12,7 @@ namespace hashes
     const auto FLASH = fnv1a::hash_const("C_FlashbangProjectile");
     const auto DECOY = fnv1a::hash_const("C_DecoyProjectile");
     const auto MOLOTOV = fnv1a::hash_const("C_MolotovProjectile");
+    const auto INCENDIARY = fnv1a::hash_const("C_IncendiaryGrenadeProjectile");
 
     const auto PLAYER_CONTROLLER_DESIGNER = fnv1a::hash_const("cs_player_controller");
     const auto C4_DESIGNER = fnv1a::hash_const("weapon_c4");
@@ -22,6 +23,7 @@ namespace hashes
     const auto FLASH_DESIGNER = fnv1a::hash_const("flashbang_projectile");
     const auto DECOY_DESIGNER = fnv1a::hash_const("decoy_projectile");
     const auto MOLOTOV_DESIGNER = fnv1a::hash_const("molotov_projectile");
+    const auto INCENDIARY_DESIGNER = fnv1a::hash_const("incgrenade_projectile");
 
     //maps
     const auto DE_DUST2 = fnv1a::hash_const("de_dust2");
