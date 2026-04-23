@@ -2,20 +2,25 @@
 
 bool i::setup()
 {
-	bool success = true;
-
 	const auto [client_base, client_size] = m_memory->get_module_info(CLIENT_DLL);
 	if (!client_base.has_value() || !client_size.has_value())
-		return {};
+		return false;
 
-	m_schema_system = m_memory->find_pattern(SCHEMASYSTEM_DLL, GET_SCHEMA_SYSTEM)->rip().as<c_schema_system*>();
-	success &= (m_schema_system != nullptr);
+	m_client_base = client_base.value();
 
-	m_global_vars = m_memory->read_t<c_global_vars*>(m_memory->find_pattern(CLIENT_DLL, GET_GLOBAL_VARS)->rip().as<c_global_vars*>());
-	success &= (m_global_vars != nullptr);
+	refresh_global_vars();
+	m_game_entity_system = m_memory->read_t<c_game_entity_system*>(m_client_base + dump_a2x::offsets::dwGameEntitySystem);
 
-	m_game_entity_system = m_memory->read_t<c_game_entity_system*>(m_memory->find_pattern(CLIENT_DLL, GET_ENTITY_LIST)->rip().as<c_game_entity_system*>());
-	success &= (m_game_entity_system != nullptr);
+	return m_global_vars != nullptr && m_game_entity_system != nullptr;
+}
 
-	return success;
+void i::refresh_global_vars()
+{
+	if (!m_client_base)
+	{
+		m_global_vars = nullptr;
+		return;
+	}
+
+	m_global_vars = m_memory->read_t<c_global_vars*>(m_client_base + dump_a2x::offsets::dwGlobalVars);
 }

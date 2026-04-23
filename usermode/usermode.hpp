@@ -29,6 +29,7 @@
 #include "utils/memory.hpp"
 
 /* core */
+#include "core/dump_a2x.hpp"
 #include "core/interfaces.hpp"
 #include "core/schema.hpp"
 
