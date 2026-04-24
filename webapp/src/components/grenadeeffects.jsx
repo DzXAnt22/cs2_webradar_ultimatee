@@ -2,11 +2,13 @@ import { calculatePositionWithScale, getRadarPosition } from "../utilities/utili
 import { GRENADE_RENDER_STATE, getGrenadeEffectIntensity, getGrenadeTransitionMs } from "../utilities/grenadeVisuals";
 
 const TimerChip = ({ value, visible }) => {
-  if (!visible || value == null) {
+  const numericValue = Number(value);
+
+  if (!visible || !Number.isFinite(numericValue) || numericValue < 0) {
     return null;
   }
 
-  return <div className="grenade-timer-chip">{value.toFixed(1)}s</div>;
+  return <div className="grenade-timer-chip">{numericValue.toFixed(1)}s</div>;
 };
 
 const getNodeScale = (settings) => {
@@ -23,11 +25,25 @@ const getFirePositions = (grenadeData, settings) => {
   const fallback = [[grenadeData.m_x, grenadeData.m_y]];
   const source = positions.length > 0 ? positions : fallback;
 
+  const normalizedPositions = source
+    .map((point) => {
+      if (Array.isArray(point) && point.length >= 2) {
+        return [Number(point[0]), Number(point[1])];
+      }
+
+      if (point && typeof point === "object") {
+        return [Number(point.x ?? point.m_x), Number(point.y ?? point.m_y)];
+      }
+
+      return null;
+    })
+    .filter((point) => point && Number.isFinite(point[0]) && Number.isFinite(point[1]));
+
   if (!settings?.grenadePerformanceMode) {
-    return source.slice(0, 64);
+    return normalizedPositions.slice(0, 64);
   }
 
-  return source.filter((_, index) => index % 2 === 0).slice(0, 24);
+  return normalizedPositions.filter((_, index) => index % 2 === 0).slice(0, 24);
 };
 
 const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLatency, radarImage }) => {

@@ -39,7 +39,16 @@
             "light_green": "Light Green",
             "pink": "Pink"
         },
-        "choose_yourself_again_button": "Choose Yourself Again"
+        "choose_yourself_again_button": "Choose Yourself Again",
+        "radar_section": "Radar",
+        "players_section": "Players",
+        "grenades_section": "Grenades",
+        "theme_section": "Theme & Loot",
+        "grenade_effect_intensity": "Effect Intensity",
+        "grenade_high_contrast": "High Contrast Effects",
+        "flash_pulse": "Flash Detonation Pulse",
+        "show_grenade_timers": "Show Grenade Timers",
+        "grenade_performance_mode": "Performance Mode"
     },
     "bomb_timer": {
         "lethal": "LETHAL"

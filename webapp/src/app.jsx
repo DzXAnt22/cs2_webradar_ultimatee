@@ -5,6 +5,7 @@ import Radar from "./components/radar";
 import { getLatency, Latency } from "./components/latency";
 import MaskedIcon from "./components/maskedicon";
 import { colorSchemePallette } from "./utilities/utilities";
+import { normalizeGrenadeType } from "./utilities/grenadeVisuals";
 
 const CONNECTION_TIMEOUT = 5000;
 
@@ -113,6 +114,191 @@ const mergeSettings = (savedSettings) => ({
   ...(savedSettings || {}),
   settings_version: DEFAULT_SETTINGS.settings_version,
 });
+
+const pickFirstNumber = (...values) => {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+  }
+
+  return null;
+};
+
+const parseSocketPayload = async (payload) => {
+  if (typeof payload === "string") {
+    return JSON.parse(payload);
+  }
+
+  if (payload instanceof Blob) {
+    return JSON.parse(await payload.text());
+  }
+
+  if (payload instanceof ArrayBuffer) {
+    return JSON.parse(new TextDecoder().decode(payload));
+  }
+
+  if (ArrayBuffer.isView(payload)) {
+    return JSON.parse(new TextDecoder().decode(payload));
+  }
+
+  return JSON.parse(String(payload));
+};
+
+const parseBooleanValue = (value) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === "true" || normalized === "1" || normalized === "yes") {
+      return true;
+    }
+
+    if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "") {
+      return false;
+    }
+  }
+
+  return Boolean(value);
+};
+
+const normalizeGrenadeEntry = (grenade) => {
+  if (!grenade || typeof grenade !== "object") {
+    return null;
+  }
+
+  const grenadeType = grenade.m_type || grenade.type || grenade.name || grenade.grenade_type;
+  const normalizedType = grenadeType ? normalizeGrenadeType(grenadeType) : "unknown";
+
+  const x = pickFirstNumber(grenade.m_x, grenade.x, grenade.position?.x, grenade.pos?.x);
+  const y = pickFirstNumber(grenade.m_y, grenade.y, grenade.position?.y, grenade.pos?.y);
+
+  if (x == null || y == null) {
+    return null;
+  }
+
+  const timeleft = pickFirstNumber(grenade.m_timeleft, grenade.timeleft, grenade.time_left, grenade.duration_left);
+  const firePositions = Array.isArray(grenade.m_firePositions)
+    ? grenade.m_firePositions
+    : Array.isArray(grenade.firePositions)
+      ? grenade.firePositions
+      : null;
+
+  return {
+    ...grenade,
+    m_idx: grenade.m_idx ?? grenade.idx ?? grenade.entity_idx,
+    m_type: normalizedType,
+    m_x: x,
+    m_y: y,
+    ...(timeleft != null ? { m_timeleft: timeleft } : {}),
+    ...(firePositions ? { m_firePositions: firePositions } : {}),
+  };
+};
+
+const isPersistentGrenade = (grenade) => {
+  const normalizedType = normalizeGrenadeType(grenade.m_type);
+  if (
+    normalizedType === "smoke"
+    || normalizedType === "smokegrenade"
+    || normalizedType === "molo"
+    || normalizedType === "molotov"
+    || normalizedType === "incgrenade"
+    || normalizedType === "inferno"
+  ) {
+    return true;
+  }
+
+  return Number.isFinite(grenade.m_timeleft) && grenade.m_timeleft > 0;
+};
+
+const normalizeGrenadePayload = (payload) => {
+  const normalized = {
+    landed: [],
+    thrown: [],
+  };
+
+  if (!payload) {
+    return normalized;
+  }
+
+  if (Array.isArray(payload)) {
+    payload.forEach((grenade) => {
+      const normalizedGrenade = normalizeGrenadeEntry(grenade);
+      if (!normalizedGrenade) {
+        return;
+      }
+
+      if (isPersistentGrenade(normalizedGrenade)) {
+        normalized.landed.push(normalizedGrenade);
+      } else {
+        normalized.thrown.push(normalizedGrenade);
+      }
+    });
+
+    return normalized;
+  }
+
+  const landedSource = payload.landed || payload.m_landed || payload.active || payload.smokes || payload.infernos || [];
+  const thrownSource = payload.thrown || payload.m_thrown || payload.projectiles || payload.airborne || [];
+
+  if (Array.isArray(landedSource)) {
+    normalized.landed = landedSource.map(normalizeGrenadeEntry).filter(Boolean);
+  }
+
+  if (Array.isArray(thrownSource)) {
+    normalized.thrown = thrownSource.map(normalizeGrenadeEntry).filter(Boolean);
+  }
+
+  if (normalized.landed.length === 0 && normalized.thrown.length === 0) {
+    Object.values(payload).forEach((grenadeCandidate) => {
+      const normalizedGrenade = normalizeGrenadeEntry(grenadeCandidate);
+      if (!normalizedGrenade) {
+        return;
+      }
+
+      if (isPersistentGrenade(normalizedGrenade)) {
+        normalized.landed.push(normalizedGrenade);
+      } else {
+        normalized.thrown.push(normalizedGrenade);
+      }
+    });
+  }
+
+  return normalized;
+};
+
+const normalizeBombPayload = (payload) => {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const x = pickFirstNumber(payload.x, payload.m_x, payload.bomb_x, payload.position?.x, payload.m_position?.x);
+  const y = pickFirstNumber(payload.y, payload.m_y, payload.bomb_y, payload.position?.y, payload.m_position?.y);
+  const blowTime = pickFirstNumber(payload.m_blow_time, payload.blow_time, payload.bomb_time);
+  const defuseTime = pickFirstNumber(payload.m_defuse_time, payload.defuse_time);
+
+  if (x == null || y == null) {
+    return undefined;
+  }
+
+  return {
+    ...payload,
+    x,
+    y,
+    ...(blowTime != null ? { m_blow_time: blowTime } : {}),
+    ...(defuseTime != null ? { m_defuse_time: defuseTime } : {}),
+    m_is_defused: parseBooleanValue(payload.m_is_defused ?? payload.is_defused),
+    m_is_defusing: parseBooleanValue(payload.m_is_defusing ?? payload.is_defusing),
+  };
+};
 
 const loadLanguageFile = async (language) => {
   await fetch(`/lang/${language}.json`)
@@ -307,13 +493,33 @@ const App = () => {
       webSocket.onmessage = async (event) => {
         setAverageLatency(getLatency());
 
-        const parsedData = JSON.parse(await event.data.text());
-        setLocalTeam(parsedData.m_local_team);
-        setBombData(parsedData.m_bomb);
-        setGrenadeData(parsedData.m_grenades || { landed: [], thrown: [] });
-        setDroppedWeaponsData(parsedData.m_dropped_weapons);
+        let parsedData = null;
 
-        const map = parsedData.m_map;
+        try {
+          parsedData = await parseSocketPayload(event.data);
+        } catch (error) {
+          console.error("Failed to parse websocket payload", error);
+          return;
+        }
+
+        setLocalTeam((previousTeam) => parsedData.m_local_team ?? parsedData.local_team ?? previousTeam);
+        setBombData(normalizeBombPayload(parsedData.m_bomb ?? parsedData.bomb ?? parsedData.m_bomb_data));
+        setGrenadeData(
+          normalizeGrenadePayload(parsedData.m_grenades ?? parsedData.grenades ?? parsedData.grenade_data)
+        );
+        setDroppedWeaponsData(
+          Array.isArray(parsedData.m_dropped_weapons)
+            ? parsedData.m_dropped_weapons
+            : Array.isArray(parsedData.dropped_weapons)
+              ? parsedData.dropped_weapons
+              : []
+        );
+
+        const map = parsedData.m_map ?? parsedData.map;
+
+        if (!map) {
+          return;
+        }
 
         if (map === "invalid") {
           setMapData({ name: "invalid" });
@@ -328,7 +534,7 @@ const App = () => {
         }
 
         if (mapMetaCache.current[map]) {
-          setPlayerArray(parsedData.m_players);
+          setPlayerArray(Array.isArray(parsedData.m_players) ? parsedData.m_players : parsedData.players || []);
           setMapData({
             ...mapMetaCache.current[map],
             name: map,
@@ -373,6 +579,12 @@ const App = () => {
     settings.whichPlayerAreYou &&
     settings.whichPlayerAreYou !== "0";
 
+  const radarFrameSizeClass = "w-[min(84vh,84vw)] min-w-[22rem] max-w-[68rem]";
+  const bombBlowTime = pickFirstNumber(bombData?.m_blow_time, bombData?.blow_time) ?? 0;
+  const bombDefuseTime = pickFirstNumber(bombData?.m_defuse_time, bombData?.defuse_time) ?? 0;
+  const bombIsDefused = Boolean(bombData?.m_is_defused);
+  const bombIsDefusing = Boolean(bombData?.m_is_defusing);
+
   return (
     <div className="radar-app-shell">
       {showLangPrompt && <LanguageSelectionModal languages={languageOptions} onSelect={handleLangSelect} />}
@@ -394,7 +606,7 @@ const App = () => {
           languages={languageOptions}
         />
 
-        {bombData && bombData.m_blow_time > 0 && !bombData.m_is_defused && (
+        {bombData && bombBlowTime > 0 && !bombIsDefused && (
           <div className="absolute left-1/2 -translate-x-1/2 top-4 z-40">
             <div className="glass-panel rounded-2xl px-4 py-2 flex flex-col items-center gap-1">
               <div className="flex justify-center items-center gap-1">
@@ -402,13 +614,13 @@ const App = () => {
                   path="./assets/icons/c4_sml.png"
                   height={32}
                   color={
-                    (bombData.m_is_defusing && bombData.m_blow_time - bombData.m_defuse_time > 0 && "#00FF00") ||
-                    (bombData.m_blow_time - bombData.m_defuse_time < 0 && "#FF0000") ||
+                    (bombIsDefusing && bombBlowTime - bombDefuseTime > 0 && "#00FF00") ||
+                    (bombBlowTime - bombDefuseTime < 0 && "#FF0000") ||
                     `${colorSchemePallette[settings.colorScheme][1]}`
                   }
                 />
-                <span className="font-semibold">{`${bombData.m_blow_time.toFixed(1)}s ${
-                  (bombData.m_is_defusing && `(${bombData.m_defuse_time.toFixed(1)}s)`) || ""
+                <span className="font-semibold">{`${bombBlowTime.toFixed(1)}s ${
+                  (bombIsDefusing && `(${bombDefuseTime.toFixed(1)}s)`) || ""
                 }`}</span>
               </div>
 
@@ -417,7 +629,9 @@ const App = () => {
                   className="flex justify-center text-sm"
                   style={{
                     color: (() => {
-                      const ratio = tempPlayer_.m_bomb_damage / tempPlayer_.m_health;
+                      const playerHealth = Math.max(Number(tempPlayer_.m_health) || 0, 1);
+                      const playerBombDamage = Number(tempPlayer_.m_bomb_damage) || 0;
+                      const ratio = playerBombDamage / playerHealth;
 
                       if (ratio >= 1.0) {
                         return "rgb(255, 0, 0)";
@@ -431,14 +645,17 @@ const App = () => {
                       const decimal = ratio * 2;
                       return `rgb(${Math.floor(255 * decimal)}, 255, 0)`;
                     })(),
-                    fontWeight: tempPlayer_.m_bomb_damage / tempPlayer_.m_health >= 1.0 ? "bold" : "normal",
+                    fontWeight:
+                      (Number(tempPlayer_.m_bomb_damage) || 0) / Math.max(Number(tempPlayer_.m_health) || 0, 1) >= 1
+                        ? "bold"
+                        : "normal",
                   }}
                 >
                   {`${
-                    tempPlayer_.m_bomb_damage < tempPlayer_.m_health
-                      ? tempPlayer_.m_bomb_damage < 7
+                    (Number(tempPlayer_.m_bomb_damage) || 0) < (Number(tempPlayer_.m_health) || 0)
+                      ? (Number(tempPlayer_.m_bomb_damage) || 0) < 7
                         ? "0 HP"
-                        : `-${tempPlayer_.m_bomb_damage} HP`
+                        : `-${Number(tempPlayer_.m_bomb_damage) || 0} HP`
                       : `⚠️ ${translation.bomb_timer.lethal} ⚠️`
                   }`}
                 </div>
@@ -447,8 +664,8 @@ const App = () => {
           </div>
         )}
 
-        <div className="flex-1 flex items-center justify-center px-3 pt-20 pb-4 gap-3">
-          <ul className="lg:flex hidden flex-col gap-2 m-0 p-2 w-[24rem] max-h-[86vh] overflow-y-auto glass-panel-soft rounded-3xl">
+        <div className="flex-1 flex items-center justify-center px-2 xl:px-4 pt-20 pb-3 gap-2 xl:gap-3">
+          <ul className="xl:flex hidden flex-col gap-2 m-0 p-2 w-[20rem] max-h-[88vh] overflow-y-auto glass-panel-soft rounded-3xl">
             {playerArray &&
               playerArray
                 .filter((player) => player.m_team === 2)
@@ -464,7 +681,7 @@ const App = () => {
 
           {showRadar ? (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-[min(76vh,76vw)] min-w-[20rem] max-w-[56rem]">
+              <div className={radarFrameSizeClass}>
                 <Radar
                   playerArray={playerArray}
                   radarImage={
@@ -485,7 +702,7 @@ const App = () => {
                 />
               </div>
 
-              <div className="glass-panel rounded-2xl px-4 py-3 w-[min(76vh,76vw)] min-w-[20rem] max-w-[56rem] flex items-center gap-3">
+              <div className={`glass-panel rounded-2xl px-4 py-3 ${radarFrameSizeClass} flex items-center gap-3`}>
                 <span className="text-xs uppercase tracking-[0.1em] text-radar-secondary">Zoom</span>
                 <input
                   type="range"
@@ -507,16 +724,16 @@ const App = () => {
               </div>
             </div>
           ) : mapData && mapData.name === "unsupported" ? (
-            <div id="radar" className="radar-card glass-panel-soft w-[min(76vh,76vw)] min-w-[20rem]">
+            <div id="radar" className={`radar-card glass-panel-soft ${radarFrameSizeClass}`}>
               <h1 className="radar_message">{translation.radar_messages.unsupported_map}</h1>
             </div>
           ) : (
-            <div id="radar" className="radar-card glass-panel-soft w-[min(76vh,76vw)] min-w-[20rem]">
+            <div id="radar" className={`radar-card glass-panel-soft ${radarFrameSizeClass}`}>
               <h1 className="radar_message">{translation.radar_messages.connected}</h1>
             </div>
           )}
 
-          <ul className="lg:flex hidden flex-col gap-2 m-0 p-2 w-[24rem] max-h-[86vh] overflow-y-auto glass-panel-soft rounded-3xl">
+          <ul className="xl:flex hidden flex-col gap-2 m-0 p-2 w-[20rem] max-h-[88vh] overflow-y-auto glass-panel-soft rounded-3xl">
             {playerArray &&
               playerArray
                 .filter((player) => player.m_team === 3)

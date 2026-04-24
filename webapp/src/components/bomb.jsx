@@ -14,9 +14,8 @@ const Bomb = ({ bombData, mapData, radarImage, localTeam, averageLatency, settin
       y: (scaledPos[1] - bombBounding.height * 0.5),
     };
 
-  // Calculate bomb size based on settings
-  const baseSize = 1.5; // Base size in vw
-  const scaledSize = baseSize * settings.bombSize;
+  const baseSize = 1.5;
+  const scaledSize = baseSize * (settings?.bombSize || 0.5);
 
   const transitionMs = getSmoothedTransitionMs(averageLatency, 0.55, 70, 160);
 
@@ -35,7 +34,8 @@ const Bomb = ({ bombData, mapData, radarImage, localTeam, averageLatency, settin
           `#c90b0b`
         }`,
         WebkitMask: `url('./assets/icons/c4_sml.png') no-repeat center / contain`,
-        opacity: `${settings.showOnlyEnemies && bombData.owner_entity < 429496729 && localTeam == teamEnum.terrorist ? 0 : 1}`,
+        mask: `url('./assets/icons/c4_sml.png') no-repeat center / contain`,
+        opacity: `${settings?.showOnlyEnemies && Number(bombData.owner_entity) < 429496729 && localTeam == teamEnum.terrorist ? 0 : 1}`,
         zIndex: `1`,
       }}
     />

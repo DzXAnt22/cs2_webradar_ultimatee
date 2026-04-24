@@ -3,6 +3,7 @@ const MaskedIcon = ({ path, height, color }) => {
     <div
       style={{
         WebkitMask: `url(${path}) no-repeat center / contain`,
+        mask: `url(${path}) no-repeat center / contain`,
         width: `auto`,
         height: height,
         backgroundColor: `${color}`,

@@ -39,7 +39,16 @@
             "light_green": "亮绿",
             "pink": "粉色"
         },
-        "choose_yourself_again_button": "选择自己"
+        "choose_yourself_again_button": "选择自己",
+        "radar_section": "雷达",
+        "players_section": "玩家",
+        "grenades_section": "投掷物",
+        "theme_section": "主题与掉落",
+        "grenade_effect_intensity": "效果强度",
+        "grenade_high_contrast": "高对比效果",
+        "flash_pulse": "闪光爆发脉冲",
+        "show_grenade_timers": "显示投掷物计时",
+        "grenade_performance_mode": "性能模式"
     },
     "bomb_timer": {
         "lethal": "致命"
