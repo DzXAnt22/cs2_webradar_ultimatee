@@ -10,13 +10,13 @@
 }
 
 :root {
-  --text-primary: #d8e9ff;
+  --text-primary: #e1f0ff;
   --text-secondary: #8eb6d8;
-  --surface-bg: rgba(9, 22, 36, 0.7);
-  --surface-soft-bg: rgba(11, 26, 42, 0.5);
-  --surface-border: rgba(174, 220, 255, 0.18);
-  --surface-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
-  --hud-glow: 0 0 24px rgba(130, 197, 255, 0.18);
+  --surface-bg: rgba(7, 18, 31, 0.76);
+  --surface-soft-bg: rgba(9, 23, 37, 0.58);
+  --surface-border: rgba(190, 228, 255, 0.2);
+  --surface-shadow: 0 24px 72px rgba(0, 0, 0, 0.5);
+  --hud-glow: 0 0 28px rgba(131, 202, 255, 0.22);
 }
 
 * {
@@ -33,32 +33,67 @@ body {
   background-color: #030b14;
 }
 
+@keyframes fluidBackground {
+  0% {
+    transform: translate3d(0%, 0%, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(2%, -1.5%, 0) scale(1.03);
+  }
+
+  100% {
+    transform: translate3d(-2%, 1.5%, 0) scale(1.01);
+  }
+}
+
 .radar-app-shell {
   width: 100vw;
   height: 100vh;
-  background: radial-gradient(70% 75% at 50% 40%, rgba(24, 54, 80, 0.92) 0%, rgba(4, 13, 24, 0.95) 100%);
-  backdrop-filter: blur(10px);
+  background:
+    radial-gradient(90% 95% at 15% 5%, rgba(45, 93, 130, 0.32) 0%, rgba(12, 24, 38, 0) 72%),
+    radial-gradient(70% 82% at 85% 20%, rgba(32, 68, 108, 0.3) 0%, rgba(10, 20, 34, 0) 72%),
+    linear-gradient(160deg, rgba(5, 14, 24, 0.98) 0%, rgba(3, 10, 18, 0.97) 40%, rgba(7, 20, 34, 0.98) 100%);
+  backdrop-filter: blur(14px);
+  position: relative;
+  overflow: hidden;
+}
+
+.radar-app-shell::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background:
+    radial-gradient(circle at 22% 16%, rgba(93, 181, 255, 0.14), transparent 45%),
+    radial-gradient(circle at 77% 82%, rgba(78, 144, 218, 0.18), transparent 46%);
+  animation: fluidBackground 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.radar-app-shell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .glass-panel {
-  background: var(--surface-bg);
+  background: linear-gradient(160deg, rgba(8, 19, 33, 0.78) 0%, rgba(7, 17, 30, 0.62) 100%);
   border: 1px solid var(--surface-border);
   box-shadow: var(--surface-shadow), var(--hud-glow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 }
 
 .glass-panel-soft {
-  background: var(--surface-soft-bg);
-  border: 1px solid rgba(174, 220, 255, 0.12);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(8px);
+  background: linear-gradient(160deg, rgba(10, 26, 42, 0.58) 0%, rgba(8, 20, 34, 0.5) 100%);
+  border: 1px solid rgba(174, 220, 255, 0.16);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
 }
 
 .radar-card {
   border-radius: 24px;
   overflow: hidden;
-  border: 1px solid rgba(174, 220, 255, 0.2);
-  box-shadow: var(--surface-shadow);
+  border: 1px solid rgba(190, 228, 255, 0.24);
+  box-shadow: var(--surface-shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .radar_message {

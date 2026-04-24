@@ -39,7 +39,16 @@
             "light_green": "Jasno-zielony",
             "pink": "Różowy"
         },
-        "choose_yourself_again_button": "Wybierz Siebie Ponownie"
+        "choose_yourself_again_button": "Wybierz Siebie Ponownie",
+        "radar_section": "Radar",
+        "players_section": "Gracze",
+        "grenades_section": "Granaty",
+        "theme_section": "Motyw i Łupy",
+        "grenade_effect_intensity": "Intensywność Efektów",
+        "grenade_high_contrast": "Wysoki Kontrast Efektów",
+        "flash_pulse": "Impuls po Wybuchu Flasha",
+        "show_grenade_timers": "Pokazuj Timery Granatów",
+        "grenade_performance_mode": "Tryb Wydajności"
     },
     "bomb_timer": {
         "lethal": "ŚMIERTELNE"

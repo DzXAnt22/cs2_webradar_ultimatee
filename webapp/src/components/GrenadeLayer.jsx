@@ -53,16 +53,16 @@ const GrenadeLayer = ({ grenadeData, mapData, settings, averageLatency, radarIma
     incomingLanded.forEach((grenade) => {
       const cacheKey = buildGrenadeKey(grenade, "landed");
       incomingLandedKeys.add(cacheKey);
+      const normalizedType = normalizeGrenadeType(grenade.m_type);
+      const isBurning = normalizedType === "molo" || normalizedType === "molotov" || normalizedType === "incgrenade";
+
       cacheRef.current.landed.set(cacheKey, {
         ...cacheRef.current.landed.get(cacheKey),
         ...grenade,
         cacheKey,
-        renderState:
-          grenade.m_type === "molo"
-            ? GRENADE_RENDER_STATE.BURNING
-            : GRENADE_RENDER_STATE.SMOKE_ACTIVE,
+        renderState: isBurning ? GRENADE_RENDER_STATE.BURNING : GRENADE_RENDER_STATE.SMOKE_ACTIVE,
         lastSeenAt: now,
-        expiresAt: now + getLandedPersistMs(grenade.m_type, settings),
+        expiresAt: now + getLandedPersistMs(normalizedType, settings),
       });
     });
 

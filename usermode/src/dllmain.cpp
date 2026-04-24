@@ -1,10 +1,85 @@
 #include "pch.hpp"
 #include <format>
 #include <thread>
+#include <shellapi.h>
 
 HWND g_hMainWnd = NULL;
 HWND g_hLogEdit = NULL;
 constexpr UINT WM_APP_LOG = WM_APP + 1;
+constexpr UINT WM_APP_TRAY = WM_APP + 2;
+constexpr UINT TRAY_ICON_UID = 0x25A2;
+constexpr UINT ID_TRAY_RESTORE = 40001;
+constexpr UINT ID_TRAY_EXIT = 40002;
+
+NOTIFYICONDATAA g_tray_icon = {};
+bool g_tray_icon_visible = false;
+
+void remove_tray_icon()
+{
+    if (!g_tray_icon_visible)
+        return;
+
+    Shell_NotifyIconA(NIM_DELETE, &g_tray_icon);
+    g_tray_icon_visible = false;
+}
+
+void show_tray_icon(HWND hWnd)
+{
+    if (g_tray_icon_visible)
+        return;
+
+    g_tray_icon = {};
+    g_tray_icon.cbSize = sizeof(g_tray_icon);
+    g_tray_icon.hWnd = hWnd;
+    g_tray_icon.uID = TRAY_ICON_UID;
+    g_tray_icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    g_tray_icon.uCallbackMessage = WM_APP_TRAY;
+    g_tray_icon.hIcon = static_cast<HICON>(LoadImageA(NULL, IDI_APPLICATION, IMAGE_ICON, 16, 16, LR_SHARED));
+    strcpy_s(g_tray_icon.szTip, "cs2_webradar");
+
+    if (Shell_NotifyIconA(NIM_ADD, &g_tray_icon))
+        g_tray_icon_visible = true;
+}
+
+void minimize_to_tray()
+{
+    if (!g_hMainWnd)
+        return;
+
+    show_tray_icon(g_hMainWnd);
+    ShowWindow(g_hMainWnd, SW_HIDE);
+}
+
+void restore_from_tray()
+{
+    if (!g_hMainWnd)
+        return;
+
+    ShowWindow(g_hMainWnd, SW_RESTORE);
+    SetForegroundWindow(g_hMainWnd);
+    remove_tray_icon();
+}
+
+void show_tray_menu(HWND hWnd)
+{
+    HMENU menu = CreatePopupMenu();
+    if (!menu)
+        return;
+
+    AppendMenuA(menu, MF_STRING, ID_TRAY_RESTORE, "Restore");
+    AppendMenuA(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenuA(menu, MF_STRING, ID_TRAY_EXIT, "Exit");
+
+    POINT cursor_pos;
+    GetCursorPos(&cursor_pos);
+
+    SetForegroundWindow(hWnd);
+    const auto clicked_command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, cursor_pos.x, cursor_pos.y, 0, hWnd, NULL);
+    DestroyMenu(menu);
+
+    if (clicked_command != 0)
+        PostMessage(hWnd, WM_COMMAND, clicked_command, 0);
+}
 
 void LogMessage(const std::string& msg, int type = 1) {
     if (!g_hMainWnd) return;
@@ -121,6 +196,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         SendMessage(g_hLogEdit, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
         return 0;
 
+    case WM_SIZE:
+        if (wParam == SIZE_MINIMIZED) {
+            minimize_to_tray();
+            return 0;
+        }
+        break;
+
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xFFF0) == SC_MINIMIZE) {
+            minimize_to_tray();
+            return 0;
+        }
+        break;
+
+    case WM_APP_TRAY:
+        if (lParam == WM_LBUTTONUP || lParam == WM_LBUTTONDBLCLK) {
+            restore_from_tray();
+            return 0;
+        }
+
+        if (lParam == WM_RBUTTONUP || lParam == WM_CONTEXTMENU) {
+            show_tray_menu(hWnd);
+            return 0;
+        }
+        break;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == ID_TRAY_RESTORE) {
+            restore_from_tray();
+            return 0;
+        }
+
+        if (LOWORD(wParam) == ID_TRAY_EXIT) {
+            remove_tray_icon();
+            DestroyWindow(hWnd);
+            return 0;
+        }
+        break;
+
     case WM_APP_LOG: {
         char* pText = (char*)lParam;
         int len = GetWindowTextLength(g_hLogEdit);
@@ -131,6 +245,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
     case WM_DESTROY:
+        remove_tray_icon();
         PostQuitMessage(0);
         return 0;
     }
@@ -144,6 +259,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
     wc.hInstance = hInst;
     wc.lpszClassName = CNAME;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     RegisterClass(&wc);
 
