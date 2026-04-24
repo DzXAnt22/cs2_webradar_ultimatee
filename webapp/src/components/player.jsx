@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { getRadarPosition, playerColors, calculatePositionWithScale, calculateMapOffsetForCentering, teamEnum } from "../utilities/utilities";
+import { getRadarPosition, playerColors, calculatePositionWithScale, calculateMapOffsetForCentering, teamEnum, getSmoothedTransitionMs } from "../utilities/utilities";
 
 let playerRotations = [];
 const calculatePlayerRotation = (playerData, radarImage) => {
@@ -107,6 +107,8 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
     }
   }
 
+  const transitionMs = getSmoothedTransitionMs(averageLatency, 0.55, 70, 165);
+
   return (
     <div
       className={`absolute origin-center rounded-[100%] left-0 top-0`}
@@ -115,7 +117,7 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
         width: `${scaledSize}vw`,
         height: `${scaledSize}vw`,
         transform: `translate(${radarImageTranslation.x}px, ${radarImageTranslation.y}px)`,
-        transition: `transform ${averageLatency}ms linear`,
+        transition: `transform ${transitionMs}ms linear`,
         opacity: `${mapData.leveling && !playerData.m_is_dead && (playerData.m_position.z > mapData.level_change && tempPlayer.m_position.z < mapData.level_change && `0.5` || playerData.m_position.z < mapData.level_change && tempPlayer.m_position.z > mapData.level_change && `0.5` || `1`) || `1`}`,
         zIndex: `${(playerData.m_is_dead && `0`) || `1`}`,
         WebkitMask: `${(playerData.m_is_dead && `url('./assets/icons/icon-enemy-death_png.png') no-repeat center / contain`) || `none`}`,
@@ -135,7 +137,7 @@ const Player = ({ playerData, mapData, radarImage, localTeam, averageLatency, se
       <div
         style={{
           transform: `rotate(${(playerData.m_is_dead && `0`) || playerRotation}deg)`,
-          transition: `transform ${averageLatency}ms linear`,
+          transition: `transform ${transitionMs}ms linear`,
           width: `${scaledSize}vw`,
           height: `${scaledSize}vw`,
           opacity: `${(playerData.m_is_dead && `0.8`) || (invalidPosition && `0`) || `1`}`,

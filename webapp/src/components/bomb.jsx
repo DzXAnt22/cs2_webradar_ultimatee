@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { getRadarPosition, teamEnum, calculatePositionWithScale } from "../utilities/utilities";
+import { getRadarPosition, teamEnum, calculatePositionWithScale, getSmoothedTransitionMs } from "../utilities/utilities";
 
 const Bomb = ({ bombData, mapData, radarImage, localTeam, averageLatency, settings }) => {
   const radarPosition = getRadarPosition(mapData, bombData);
@@ -18,6 +18,8 @@ const Bomb = ({ bombData, mapData, radarImage, localTeam, averageLatency, settin
   const baseSize = 1.5; // Base size in vw
   const scaledSize = baseSize * settings.bombSize;
 
+  const transitionMs = getSmoothedTransitionMs(averageLatency, 0.55, 70, 160);
+
   return (
     <div
       className={`absolute origin-center rounded-[100%] left-0 top-0`}
@@ -26,7 +28,7 @@ const Bomb = ({ bombData, mapData, radarImage, localTeam, averageLatency, settin
         width: `${scaledSize}vw`,
         height: `${scaledSize}vw`,
         transform: `translate(${radarImageTranslation.x}px, ${radarImageTranslation.y}px)`,
-        transition: `transform ${averageLatency}ms linear`,
+        transition: `transform ${transitionMs}ms linear`,
         backgroundColor: `${
           (bombData.m_is_defused && `#50904c`) ||
           (localTeam == teamEnum.counterTerrorist && `#6492b4`) ||

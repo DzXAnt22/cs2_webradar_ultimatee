@@ -23,7 +23,7 @@ const PlayerCard = ({ playerData, isOnRightSide, settings }) => {
   return (
     <li
       style={{ opacity: `${(playerData.m_is_dead && `0.4`) || `1`}` }}
-      className={`flex ${isOnRightSide && (`flex-row-reverse`)} hover:cursor-pointer hover:bg-radar-secondary/20 transition-colors py-1 px-1 rounded-[30px]`}
+      className={`flex ${isOnRightSide && `flex-row-reverse`} hover:cursor-pointer hover:bg-radar-secondary/20 transition-colors py-2 px-2 rounded-2xl border border-white/10 bg-black/20`}
       onClick={() =>
         window.open(
           `https://steamcommunity.com/profiles/${playerData.m_steam_id}`,
@@ -40,12 +40,12 @@ const PlayerCard = ({ playerData, isOnRightSide, settings }) => {
           {playerData.m_name}
           <div className="flex">
           <img
-            className={`h-[8rem] w-full min-w-[10rem] rounded-[30px] ${isOnRightSide && `scale-x-[-1]`}`}
+            className={`h-[6.5rem] w-full min-w-[8.25rem] rounded-2xl ${isOnRightSide && `scale-x-[-1]`}`}
             src={`./assets/characters/${modelName}.png`}
             style={{backgroundColor:`${playerData.m_color>4?(isOnRightSide?playerColors[0]:playerColors[2]):playerColors[playerData.m_color]}`}}
           ></img>
           <img
-            className={`h-[8rem] absolute ${isOnRightSide && `scale-x-[-1]`}`}
+            className={`h-[6.5rem] absolute ${isOnRightSide && `scale-x-[-1]`}`}
             src={`./assets/icons/blind.png`}
             style={{
               backgroundColor:playerColors[playerData.m_color], 

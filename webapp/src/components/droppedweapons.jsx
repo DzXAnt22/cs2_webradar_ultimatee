@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { getRadarPosition, teamEnum, colorSchemePallette, weaponList, calculatePositionWithScale } from "../utilities/utilities";
+import { getRadarPosition, colorSchemePallette, weaponList, calculatePositionWithScale, getSmoothedTransitionMs } from "../utilities/utilities";
 import MaskedIcon from "./maskedicon";
 
 const DroppedWeapon = ({ droppedWeaponData, mapData, settings, averageLatency, radarImage }) => {
@@ -15,14 +15,17 @@ const DroppedWeapon = ({ droppedWeaponData, mapData, settings, averageLatency, r
     y: (scaledPos[1] - wepBounding.height * 0.5),
   };
 
+const transitionMs = getSmoothedTransitionMs(averageLatency, 0.5, 70, 155);
+
 return (
   <div
     ref={wepRef}
     className={`absolute left-0 top-0`}
     style={{
         transform: `translate(${radarImageTranslation.x}px, ${radarImageTranslation.y}px)`,
-        transition: `transform ${averageLatency}ms linear`,
+        transition: `transform ${transitionMs}ms linear`,
         opacity: `0.7`,
+        zIndex: `18`,
     }}
   >
   

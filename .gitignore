@@ -1,2 +1,12 @@
 kernelmode
 usermode/src/driver/driver.hpp
+
+# Web app artifacts
+webapp/node_modules/
+webapp/dist/
+webapp/.vite/
+
+# Local environment files
+*.log
+.DS_Store
+.vscode/
