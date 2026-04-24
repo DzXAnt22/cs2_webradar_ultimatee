@@ -157,6 +157,19 @@ export const calculateMapOffsetForCentering = (playerPosition, radarImage, mapDa
   }
 };
 
+export const clampNumber = (value, min, max) => {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Math.min(max, Math.max(min, value));
+};
+
+export const getSmoothedTransitionMs = (latency, multiplier = 0.55, min = 70, max = 170) => {
+  const normalizedLatency = Number.isFinite(latency) ? latency : min;
+  return clampNumber(Math.round(normalizedLatency * multiplier), min, max);
+};
+
 export const playerColors = [
   // blue
   "#84c8ed",

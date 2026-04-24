@@ -1,3 +1,5 @@
+@import "./styles/grenade-effects.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,30 +10,63 @@
 }
 
 :root {
-  --text-primary: #b1d0e7;
-  --text-secondary: #6492b4;
+  --text-primary: #d8e9ff;
+  --text-secondary: #8eb6d8;
+  --surface-bg: rgba(9, 22, 36, 0.7);
+  --surface-soft-bg: rgba(11, 26, 42, 0.5);
+  --surface-border: rgba(174, 220, 255, 0.18);
+  --surface-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
+  --hud-glow: 0 0 24px rgba(130, 197, 255, 0.18);
 }
 
 * {
+  box-sizing: border-box;
   outline-offset: 4px;
 }
 
 body {
   margin: 0;
-  font-family: "TASAOrbiter";
+  font-family: "TASAOrbiter", sans-serif;
   color: var(--text-primary);
   background-repeat: no-repeat;
   background-size: cover;
+  background-color: #030b14;
 }
 
-.banner-link {
-  transition: all 0.35s ease-in-out;
-  box-shadow: 0px 1.5px 0 0 #1E3A54;
-  height: 20px;
+.radar-app-shell {
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(70% 75% at 50% 40%, rgba(24, 54, 80, 0.92) 0%, rgba(4, 13, 24, 0.95) 100%);
+  backdrop-filter: blur(10px);
 }
 
-.banner-link:hover {
-  box-shadow: 0px 2.5px 0 0 #1E3A54;
+.glass-panel {
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--surface-shadow), var(--hud-glow);
+  backdrop-filter: blur(12px);
+}
+
+.glass-panel-soft {
+  background: var(--surface-soft-bg);
+  border: 1px solid rgba(174, 220, 255, 0.12);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.radar-card {
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(174, 220, 255, 0.2);
+  box-shadow: var(--surface-shadow);
+}
+
+.radar_message {
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 1.5rem;
 }
 
 .level_indicator {
@@ -50,7 +85,7 @@ body {
 
 select option {
   background-color: #0b1a33;
-  color: rgba(100, 146, 180, 0.5) rgba(20, 40, 55, 0.3);
+  color: #8eb6d8;
 }
 
 ::-webkit-scrollbar {
@@ -73,15 +108,11 @@ select option {
 }
 
 @keyframes alertAnimation {
-  0% {filter: drop-shadow(0px 0px 0px none);}
-  50% {filter: drop-shadow(0px 0px 20px red);}
-  100% {filter: drop-shadow(0px 0px 0px none);}
+  0% { filter: drop-shadow(0 0 0 transparent); }
+  50% { filter: drop-shadow(0 0 20px red); }
+  100% { filter: drop-shadow(0 0 0 transparent); }
 }
 
 .alertAnim {
-  background-color: none;
-  animation-name: alertAnimation;
-  animation-duration: 2s;
-  animation-iteration-count: infinite;
-  animation-timing-function: linear;
+  animation: alertAnimation 2s linear infinite;
 }

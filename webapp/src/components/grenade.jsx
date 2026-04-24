@@ -1,97 +1,77 @@
-import { useRef } from "react";
-import GrenadeEffects from "./grenadeeffects.jsx";
-import { getRadarPosition, teamEnum, calculatePositionWithScale } from "../utilities/utilities";
-import MaskedIcon from "./maskedicon.jsx";
+import GrenadeEffects from "./grenadeeffects";
+import MaskedIcon from "./maskedicon";
+import { calculatePositionWithScale, getRadarPosition } from "../utilities/utilities";
+import {
+  getGrenadeEffectIntensity,
+  getGrenadeIconName,
+  getGrenadeTransitionMs,
+  getThrownGrenadeStyle,
+  GRENADE_RENDER_STATE,
+  normalizeGrenadeType,
+} from "../utilities/grenadeVisuals";
 
-const Grenade = ({ grenadeData, mapData, settings, averageLatency, radarImage, type }) => {
+const Grenade = ({ grenadeData, mapData, settings, averageLatency, radarImage, renderState }) => {
+  const normalizedType = normalizeGrenadeType(grenadeData.m_type);
 
-  const firePositions = grenadeData.m_firePositions || {};
+  if (renderState !== GRENADE_RENDER_STATE.THROWN) {
+    return (
+      <GrenadeEffects
+        grenadeData={{ ...grenadeData, m_type: normalizedType }}
+        renderState={renderState}
+        mapData={mapData}
+        settings={settings}
+        averageLatency={averageLatency}
+        radarImage={radarImage}
+      />
+    );
+  }
 
-  const radarPosition = getRadarPosition(mapData, { x: grenadeData.m_x, y: grenadeData.m_y });
-  
-  const grenRef = useRef();
-  const grenBounding = (grenRef.current &&
-    grenRef.current.getBoundingClientRect()) || { width: 0, height: 0 };
-  const scaledPos = calculatePositionWithScale(radarImage, radarPosition);
-  const radarImageTranslation = {
-    x: (scaledPos[0] - grenBounding.width * 0.5),
-    y: (scaledPos[1] - grenBounding.height * 0.5),
-  };
+  if (!radarImage) {
+    return null;
+  }
+
+  const radarPosition = getRadarPosition(mapData, {
+    x: grenadeData.m_x,
+    y: grenadeData.m_y,
+  });
+
+  const [x, y] = calculatePositionWithScale(radarImage, radarPosition);
+  const transitionMs = getGrenadeTransitionMs(averageLatency);
+  const intensity = getGrenadeEffectIntensity(settings);
+  const styleToken = getThrownGrenadeStyle(normalizedType, settings);
+  const iconName = getGrenadeIconName(normalizedType);
+  const isIncendiary = normalizedType === "molotov" || normalizedType === "incgrenade";
 
   return (
-    <>
-      {(type == "landed") ? (
-      <>
-        {(grenadeData.m_type == "molo") ? (
-          <><div
-            key={grenadeData.m_idx}
-            className={`absolute rounded-[100%] left-0 top-0`}
-            style={{
-              opacity: `0.4`,
-            }}
-          >
-
-            {firePositions[0] != null && firePositions.map((firePosition, index) => (
-              <GrenadeEffects
-                key={index}
-                grenadeData={{ m_x: firePosition[0], m_y: firePosition[1] }}
-                type="molo"
-                mapData={mapData}
-                settings={settings}
-                averageLatency={averageLatency}
-                radarImage={radarImage} />
-            ))}
-
-          </div><div
-            className={`absolute rounded-[100%] left-0 top-0`}
-            style={{
-              transform: `translate(${radarImageTranslation.x}px, ${radarImageTranslation.y}px)`,
-              transition: `transform ${averageLatency}ms linear`,
-            }}
-          >
-
-              <label
-                className={`absolute w-full text-center text-white text-xs font-bold`}
-              >
-
-                {grenadeData.m_timeleft.toFixed(1)}s
-
-              </label>
-
-            </div></>
-        ) : (
-          <GrenadeEffects
-            grenadeData={grenadeData}
-            type="smoke"
-            mapData={mapData}
-            settings={settings}
-            averageLatency={averageLatency}
-            radarImage={radarImage}
-          />
-        )}
-
-      </>
-      ) : (
-        <div
-        ref={grenRef}
-        className={`absolute left-0 top-0`}
+    <div
+      className="absolute grenade-thrown-shell left-0 top-0"
+      style={{
+        transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`,
+        transition: `transform ${transitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        zIndex: styleToken.zIndex,
+      }}
+    >
+      <div
+        className="grenade-thrown-ring"
         style={{
-          transform: `translate(${radarImageTranslation.x}px, ${radarImageTranslation.y}px)`,
-          transition: `transform ${averageLatency}ms linear`,
+          color: styleToken.ringColor,
+          opacity: isIncendiary ? 0.95 : 0.75,
         }}
-        >
-        
-          <MaskedIcon
-            path={`./assets/icons/${grenadeData.m_type}.svg`}
-            height={`${settings.thrownGrenadeSize}vw`}
-            color={`${settings.thrownGrenadeColor}`}
-          />
+      />
 
-        </div>
-      )}
-    </>
+      <div
+        style={{
+          filter: `drop-shadow(${styleToken.coreGlow})`,
+        }}
+      >
+        <MaskedIcon
+          path={`./assets/icons/${iconName}.svg`}
+          height={`${(settings.thrownGrenadeSize || 0.5) * intensity}vw`}
+          color={styleToken.iconColor}
+        />
+      </div>
+    </div>
   );
-
 };
 
 export default Grenade;
