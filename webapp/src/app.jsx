@@ -5,7 +5,7 @@ import Radar from "./components/radar";
 import { getLatency, Latency } from "./components/latency";
 import MaskedIcon from "./components/maskedicon";
 import { colorSchemePallette } from "./utilities/utilities";
-import { normalizeGrenadeType } from "./utilities/grenadeVisuals";
+import { isBurningGrenadeType, isSmokeGrenadeType, normalizeGrenadeType } from "./utilities/grenadeVisuals";
 
 const CONNECTION_TIMEOUT = 5000;
 
@@ -170,31 +170,75 @@ const parseBooleanValue = (value) => {
   return Boolean(value);
 };
 
+const toCountdownSeconds = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  return Math.max(0, numeric);
+};
+
 const normalizeGrenadeEntry = (grenade) => {
   if (!grenade || typeof grenade !== "object") {
     return null;
   }
 
-  const grenadeType = grenade.m_type || grenade.type || grenade.name || grenade.grenade_type;
+  const grenadeType =
+    grenade.m_type
+    || grenade.type
+    || grenade.name
+    || grenade.grenade_type
+    || grenade.grenadeType
+    || grenade.kind;
   const normalizedType = grenadeType ? normalizeGrenadeType(grenadeType) : "unknown";
 
-  const x = pickFirstNumber(grenade.m_x, grenade.x, grenade.position?.x, grenade.pos?.x);
-  const y = pickFirstNumber(grenade.m_y, grenade.y, grenade.position?.y, grenade.pos?.y);
+  const x = pickFirstNumber(
+    grenade.m_x,
+    grenade.x,
+    grenade.position?.x,
+    grenade.pos?.x,
+    Array.isArray(grenade.position) ? grenade.position[0] : null,
+    Array.isArray(grenade.pos) ? grenade.pos[0] : null
+  );
+  const y = pickFirstNumber(
+    grenade.m_y,
+    grenade.y,
+    grenade.position?.y,
+    grenade.pos?.y,
+    Array.isArray(grenade.position) ? grenade.position[1] : null,
+    Array.isArray(grenade.pos) ? grenade.pos[1] : null
+  );
 
   if (x == null || y == null) {
     return null;
   }
 
-  const timeleft = pickFirstNumber(grenade.m_timeleft, grenade.timeleft, grenade.time_left, grenade.duration_left);
+  const timeleft = toCountdownSeconds(
+    pickFirstNumber(
+      grenade.m_timeleft,
+      grenade.timeleft,
+      grenade.time_left,
+      grenade.duration_left,
+      grenade.remaining,
+      grenade.remaining_time,
+      grenade.durationLeft
+    )
+  );
+
   const firePositions = Array.isArray(grenade.m_firePositions)
     ? grenade.m_firePositions
     : Array.isArray(grenade.firePositions)
       ? grenade.firePositions
-      : null;
+      : Array.isArray(grenade.fire_positions)
+        ? grenade.fire_positions
+        : Array.isArray(grenade.m_fire_positions)
+          ? grenade.m_fire_positions
+          : null;
 
   return {
     ...grenade,
-    m_idx: grenade.m_idx ?? grenade.idx ?? grenade.entity_idx,
+    m_idx: grenade.m_idx ?? grenade.idx ?? grenade.entity_idx ?? grenade.entityIndex,
     m_type: normalizedType,
     m_x: x,
     m_y: y,
@@ -204,19 +248,45 @@ const normalizeGrenadeEntry = (grenade) => {
 };
 
 const isPersistentGrenade = (grenade) => {
-  const normalizedType = normalizeGrenadeType(grenade.m_type);
-  if (
-    normalizedType === "smoke"
-    || normalizedType === "smokegrenade"
-    || normalizedType === "molo"
-    || normalizedType === "molotov"
-    || normalizedType === "incgrenade"
-    || normalizedType === "inferno"
-  ) {
+  if (isSmokeGrenadeType(grenade.m_type) || isBurningGrenadeType(grenade.m_type)) {
     return true;
   }
 
   return Number.isFinite(grenade.m_timeleft) && grenade.m_timeleft > 0;
+};
+
+const GRENADE_LANDED_KEYS = [
+  "landed",
+  "m_landed",
+  "active",
+  "persistent",
+  "smokes",
+  "smoke",
+  "infernos",
+  "inferno",
+  "fire",
+  "fires",
+];
+
+const GRENADE_THROWN_KEYS = [
+  "thrown",
+  "m_thrown",
+  "projectiles",
+  "airborne",
+  "flying",
+  "in_air",
+];
+
+const getGrenadeDedupKey = (grenade) => {
+  const type = normalizeGrenadeType(grenade.m_type);
+
+  if (grenade.m_idx !== undefined && grenade.m_idx !== null && `${grenade.m_idx}` !== "") {
+    return `${grenade.m_idx}:${type}`;
+  }
+
+  const x = Number(grenade.m_x).toFixed(2);
+  const y = Number(grenade.m_y).toFixed(2);
+  return `no_idx:${type}:${x}:${y}`;
 };
 
 const normalizeGrenadePayload = (payload) => {
@@ -229,47 +299,60 @@ const normalizeGrenadePayload = (payload) => {
     return normalized;
   }
 
+  const landedDedup = new Set();
+  const thrownDedup = new Set();
+
+  const pushGrenade = (grenadeCandidate, preferLanded = false) => {
+    const grenade = normalizeGrenadeEntry(grenadeCandidate);
+    if (!grenade) {
+      return;
+    }
+
+    const shouldBeLanded = preferLanded || isPersistentGrenade(grenade);
+    const target = shouldBeLanded ? normalized.landed : normalized.thrown;
+    const dedupSet = shouldBeLanded ? landedDedup : thrownDedup;
+    const dedupKey = getGrenadeDedupKey(grenade);
+
+    if (dedupSet.has(dedupKey)) {
+      return;
+    }
+
+    dedupSet.add(dedupKey);
+    target.push(grenade);
+  };
+
+  const pushFromSource = (source, preferLanded = false) => {
+    if (!source) {
+      return;
+    }
+
+    if (Array.isArray(source)) {
+      source.forEach((entry) => pushGrenade(entry, preferLanded));
+      return;
+    }
+
+    if (typeof source === "object") {
+      Object.values(source).forEach((entry) => {
+        if (Array.isArray(entry)) {
+          entry.forEach((item) => pushGrenade(item, preferLanded));
+          return;
+        }
+
+        pushGrenade(entry, preferLanded);
+      });
+    }
+  };
+
   if (Array.isArray(payload)) {
-    payload.forEach((grenade) => {
-      const normalizedGrenade = normalizeGrenadeEntry(grenade);
-      if (!normalizedGrenade) {
-        return;
-      }
-
-      if (isPersistentGrenade(normalizedGrenade)) {
-        normalized.landed.push(normalizedGrenade);
-      } else {
-        normalized.thrown.push(normalizedGrenade);
-      }
-    });
-
+    payload.forEach((grenade) => pushGrenade(grenade));
     return normalized;
   }
 
-  const landedSource = payload.landed || payload.m_landed || payload.active || payload.smokes || payload.infernos || [];
-  const thrownSource = payload.thrown || payload.m_thrown || payload.projectiles || payload.airborne || [];
-
-  if (Array.isArray(landedSource)) {
-    normalized.landed = landedSource.map(normalizeGrenadeEntry).filter(Boolean);
-  }
-
-  if (Array.isArray(thrownSource)) {
-    normalized.thrown = thrownSource.map(normalizeGrenadeEntry).filter(Boolean);
-  }
+  GRENADE_LANDED_KEYS.forEach((key) => pushFromSource(payload[key], true));
+  GRENADE_THROWN_KEYS.forEach((key) => pushFromSource(payload[key], false));
 
   if (normalized.landed.length === 0 && normalized.thrown.length === 0) {
-    Object.values(payload).forEach((grenadeCandidate) => {
-      const normalizedGrenade = normalizeGrenadeEntry(grenadeCandidate);
-      if (!normalizedGrenade) {
-        return;
-      }
-
-      if (isPersistentGrenade(normalizedGrenade)) {
-        normalized.landed.push(normalizedGrenade);
-      } else {
-        normalized.thrown.push(normalizedGrenade);
-      }
-    });
+    pushFromSource(payload, false);
   }
 
   return normalized;
@@ -280,24 +363,78 @@ const normalizeBombPayload = (payload) => {
     return undefined;
   }
 
-  const x = pickFirstNumber(payload.x, payload.m_x, payload.bomb_x, payload.position?.x, payload.m_position?.x);
-  const y = pickFirstNumber(payload.y, payload.m_y, payload.bomb_y, payload.position?.y, payload.m_position?.y);
-  const blowTime = pickFirstNumber(payload.m_blow_time, payload.blow_time, payload.bomb_time);
-  const defuseTime = pickFirstNumber(payload.m_defuse_time, payload.defuse_time);
+  const x = pickFirstNumber(
+    payload.x,
+    payload.m_x,
+    payload.bomb_x,
+    payload.position?.x,
+    payload.pos?.x,
+    payload.m_position?.x,
+    Array.isArray(payload.position) ? payload.position[0] : null,
+    Array.isArray(payload.pos) ? payload.pos[0] : null
+  );
+  const y = pickFirstNumber(
+    payload.y,
+    payload.m_y,
+    payload.bomb_y,
+    payload.position?.y,
+    payload.pos?.y,
+    payload.m_position?.y,
+    Array.isArray(payload.position) ? payload.position[1] : null,
+    Array.isArray(payload.pos) ? payload.pos[1] : null
+  );
 
-  if (x == null || y == null) {
+  const blowTime = toCountdownSeconds(
+    pickFirstNumber(
+      payload.m_blow_time,
+      payload.blow_time,
+      payload.bomb_time,
+      payload.detonation_time,
+      payload.detonation_countdown,
+      payload.time_to_detonate,
+      payload.countdown,
+      payload.timeleft
+    )
+  );
+
+  const defuseTime = toCountdownSeconds(
+    pickFirstNumber(
+      payload.m_defuse_time,
+      payload.defuse_time,
+      payload.defuse_countdown,
+      payload.time_to_defuse,
+      payload.defuseTime
+    )
+  );
+
+  const hasCoordinates = x != null && y != null;
+  const hasTiming = blowTime != null || defuseTime != null;
+
+  if (!hasCoordinates && !hasTiming) {
     return undefined;
   }
 
   return {
     ...payload,
-    x,
-    y,
+    ...(hasCoordinates ? { x, y } : {}),
     ...(blowTime != null ? { m_blow_time: blowTime } : {}),
     ...(defuseTime != null ? { m_defuse_time: defuseTime } : {}),
-    m_is_defused: parseBooleanValue(payload.m_is_defused ?? payload.is_defused),
-    m_is_defusing: parseBooleanValue(payload.m_is_defusing ?? payload.is_defusing),
+    m_is_defused: parseBooleanValue(payload.m_is_defused ?? payload.is_defused ?? payload.defused),
+    m_is_defusing: parseBooleanValue(payload.m_is_defusing ?? payload.is_defusing ?? payload.defusing),
+    m_is_planted: parseBooleanValue(
+      payload.m_is_planted
+      ?? payload.is_planted
+      ?? payload.planted
+      ?? (Number.isFinite(blowTime) && blowTime > 0)
+    ),
   };
+};
+
+const EMPTY_BOMB_COUNTDOWN = {
+  blowTime: 0,
+  defuseTime: 0,
+  isDefused: false,
+  isDefusing: false,
 };
 
 const loadLanguageFile = async (language) => {
@@ -382,7 +519,9 @@ const App = () => {
   const [showPlayerPrompt, setShowPlayerPrompt] = useState(false);
   const [showLangPrompt, setShowLangPrompt] = useState(false);
   const [radarScale, setRadarScale] = useState(1);
+  const [bombCountdown, setBombCountdown] = useState(EMPTY_BOMB_COUNTDOWN);
   const mapMetaCache = useRef({});
+  const bombSnapshotRef = useRef(null);
 
   const radarZoom = (event) => {
     const delta = event.deltaY * -0.001;
@@ -426,6 +565,76 @@ const App = () => {
       setShowLangPrompt(false);
     }
   }, [playerArray, settings.whichPlayerAreYou]);
+
+  useEffect(() => {
+    if (!bombData) {
+      bombSnapshotRef.current = null;
+      setBombCountdown(EMPTY_BOMB_COUNTDOWN);
+      return;
+    }
+
+    const blowTime = toCountdownSeconds(pickFirstNumber(bombData.m_blow_time, bombData.blow_time)) ?? 0;
+    const defuseTime = toCountdownSeconds(pickFirstNumber(bombData.m_defuse_time, bombData.defuse_time)) ?? 0;
+
+    bombSnapshotRef.current = {
+      capturedAt: performance.now(),
+      blowTime,
+      defuseTime,
+      isDefused: Boolean(bombData.m_is_defused),
+      isDefusing: Boolean(bombData.m_is_defusing),
+    };
+  }, [bombData]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const snapshot = bombSnapshotRef.current;
+
+      if (!snapshot) {
+        setBombCountdown((previousCountdown) => {
+          if (
+            previousCountdown.blowTime === 0
+            && previousCountdown.defuseTime === 0
+            && previousCountdown.isDefused === false
+            && previousCountdown.isDefusing === false
+          ) {
+            return previousCountdown;
+          }
+
+          return EMPTY_BOMB_COUNTDOWN;
+        });
+        return;
+      }
+
+      const elapsedSeconds = Math.max(0, (performance.now() - snapshot.capturedAt) / 1000);
+      const nextBlowTime = Math.max(0, snapshot.blowTime - elapsedSeconds);
+      const nextDefuseTime = snapshot.isDefusing ? Math.max(0, snapshot.defuseTime - elapsedSeconds) : snapshot.defuseTime;
+
+      setBombCountdown((previousCountdown) => {
+        const blowDelta = Math.abs(previousCountdown.blowTime - nextBlowTime);
+        const defuseDelta = Math.abs(previousCountdown.defuseTime - nextDefuseTime);
+
+        if (
+          blowDelta < 0.04
+          && defuseDelta < 0.04
+          && previousCountdown.isDefused === snapshot.isDefused
+          && previousCountdown.isDefusing === snapshot.isDefusing
+        ) {
+          return previousCountdown;
+        }
+
+        return {
+          blowTime: nextBlowTime,
+          defuseTime: nextDefuseTime,
+          isDefused: snapshot.isDefused,
+          isDefusing: snapshot.isDefusing,
+        };
+      });
+    }, 80);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const handlePlayerSelect = (playerIdx) => {
     setSettings((prevSettings) => ({
@@ -503,9 +712,23 @@ const App = () => {
         }
 
         setLocalTeam((previousTeam) => parsedData.m_local_team ?? parsedData.local_team ?? previousTeam);
-        setBombData(normalizeBombPayload(parsedData.m_bomb ?? parsedData.bomb ?? parsedData.m_bomb_data));
+        setBombData(
+          normalizeBombPayload(
+            parsedData.m_bomb
+              ?? parsedData.bomb
+              ?? parsedData.bomb_data
+              ?? parsedData.m_bomb_data
+              ?? parsedData.c4
+          )
+        );
         setGrenadeData(
-          normalizeGrenadePayload(parsedData.m_grenades ?? parsedData.grenades ?? parsedData.grenade_data)
+          normalizeGrenadePayload(
+            parsedData.m_grenades
+              ?? parsedData.grenades
+              ?? parsedData.grenade_data
+              ?? parsedData.nades
+              ?? parsedData.m_nades
+          )
         );
         setDroppedWeaponsData(
           Array.isArray(parsedData.m_dropped_weapons)
@@ -580,10 +803,10 @@ const App = () => {
     settings.whichPlayerAreYou !== "0";
 
   const radarFrameSizeClass = "w-[min(84vh,84vw)] min-w-[22rem] max-w-[68rem]";
-  const bombBlowTime = pickFirstNumber(bombData?.m_blow_time, bombData?.blow_time) ?? 0;
-  const bombDefuseTime = pickFirstNumber(bombData?.m_defuse_time, bombData?.defuse_time) ?? 0;
-  const bombIsDefused = Boolean(bombData?.m_is_defused);
-  const bombIsDefusing = Boolean(bombData?.m_is_defusing);
+  const bombBlowTime = Number.isFinite(bombCountdown.blowTime) ? Math.max(0, bombCountdown.blowTime) : 0;
+  const bombDefuseTime = Number.isFinite(bombCountdown.defuseTime) ? Math.max(0, bombCountdown.defuseTime) : 0;
+  const bombIsDefused = Boolean(bombCountdown.isDefused);
+  const bombIsDefusing = Boolean(bombCountdown.isDefusing);
 
   return (
     <div className="radar-app-shell">
@@ -614,13 +837,13 @@ const App = () => {
                   path="./assets/icons/c4_sml.png"
                   height={32}
                   color={
-                    (bombIsDefusing && bombBlowTime - bombDefuseTime > 0 && "#00FF00") ||
-                    (bombBlowTime - bombDefuseTime < 0 && "#FF0000") ||
+                    (bombIsDefusing && bombDefuseTime > 0 && bombBlowTime - bombDefuseTime > 0 && "#00FF00") ||
+                    (bombIsDefusing && bombDefuseTime > 0 && bombBlowTime - bombDefuseTime < 0 && "#FF0000") ||
                     `${colorSchemePallette[settings.colorScheme][1]}`
                   }
                 />
                 <span className="font-semibold">{`${bombBlowTime.toFixed(1)}s ${
-                  (bombIsDefusing && `(${bombDefuseTime.toFixed(1)}s)`) || ""
+                  (bombIsDefusing && bombDefuseTime > 0 && `(${bombDefuseTime.toFixed(1)}s)`) || ""
                 }`}</span>
               </div>
 

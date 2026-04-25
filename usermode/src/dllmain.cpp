@@ -177,7 +177,10 @@ DWORD WINAPI AppLogic(LPVOID) {
             start = now;
             sdk::update();
             in_match = f::run();
-            if (!in_match) f::m_data["m_map"] = "invalid";
+            if (!in_match) {
+                f::m_data["m_map"] = "invalid";
+                f::m_data["map"] = "invalid";
+            }
             ws->send(f::m_data.dump());
         }
         ws->poll();
