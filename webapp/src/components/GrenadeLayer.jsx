@@ -3,9 +3,13 @@ import Grenade from "./grenade";
 import {
   buildGrenadeKey,
   getFlashPulseDurationMs,
+  getHePulseDurationMs,
   getLandedPersistMs,
+  getPulseMissingGraceMs,
   getThrownPersistMs,
   GRENADE_RENDER_STATE,
+  isBurningGrenadeType,
+  isHeGrenadeType,
   normalizeGrenadeType,
 } from "../utilities/grenadeVisuals";
 
@@ -19,6 +23,7 @@ const GrenadeLayer = ({ grenadeData, mapData, settings, averageLatency, radarIma
     thrown: new Map(),
     landed: new Map(),
     previousThrown: new Map(),
+    pendingThrownDisappearances: new Map(),
     pulses: [],
   });
 
@@ -39,6 +44,7 @@ const GrenadeLayer = ({ grenadeData, mapData, settings, averageLatency, radarIma
     incomingThrown.forEach((grenade) => {
       const cacheKey = buildGrenadeKey(grenade, "thrown");
       incomingThrownKeys.add(cacheKey);
+      cacheRef.current.pendingThrownDisappearances.delete(cacheKey);
 
       cacheRef.current.thrown.set(cacheKey, {
         ...cacheRef.current.thrown.get(cacheKey),
@@ -54,32 +60,80 @@ const GrenadeLayer = ({ grenadeData, mapData, settings, averageLatency, radarIma
       const cacheKey = buildGrenadeKey(grenade, "landed");
       incomingLandedKeys.add(cacheKey);
       const normalizedType = normalizeGrenadeType(grenade.m_type);
-      const isBurning = normalizedType === "molo" || normalizedType === "molotov" || normalizedType === "incgrenade";
+      const renderState = isBurningGrenadeType(normalizedType)
+        ? GRENADE_RENDER_STATE.BURNING
+        : GRENADE_RENDER_STATE.SMOKE_ACTIVE;
 
       cacheRef.current.landed.set(cacheKey, {
         ...cacheRef.current.landed.get(cacheKey),
         ...grenade,
         cacheKey,
-        renderState: isBurning ? GRENADE_RENDER_STATE.BURNING : GRENADE_RENDER_STATE.SMOKE_ACTIVE,
+        renderState,
         lastSeenAt: now,
         expiresAt: now + getLandedPersistMs(normalizedType, settings),
       });
     });
 
-    if (settings.flashPulseEnabled !== false) {
-      cacheRef.current.previousThrown.forEach((grenade, cacheKey) => {
-        if (grenade.m_type !== "flashbang" || incomingThrownKeys.has(cacheKey)) {
+    const registerThrownPulse = (grenade, cacheKey) => {
+      const normalizedType = normalizeGrenadeType(grenade?.m_type);
+
+      let renderState = null;
+      let durationMs = 0;
+
+      if (normalizedType === "flashbang") {
+        if (settings.flashPulseEnabled === false) {
+          cacheRef.current.pendingThrownDisappearances.delete(cacheKey);
           return;
         }
 
-        cacheRef.current.pulses.push({
-          ...grenade,
-          renderState: GRENADE_RENDER_STATE.FLASH_PULSE,
-          cacheKey: `flash-pulse:${cacheKey}:${now}`,
-          expiresAt: now + getFlashPulseDurationMs(settings),
+        renderState = GRENADE_RENDER_STATE.FLASH_PULSE;
+        durationMs = getFlashPulseDurationMs(settings);
+      } else if (isHeGrenadeType(normalizedType)) {
+        renderState = GRENADE_RENDER_STATE.HE_PULSE;
+        durationMs = getHePulseDurationMs(settings);
+      } else {
+        cacheRef.current.pendingThrownDisappearances.delete(cacheKey);
+        return;
+      }
+
+      const existingPending = cacheRef.current.pendingThrownDisappearances.get(cacheKey);
+      if (!existingPending) {
+        cacheRef.current.pendingThrownDisappearances.set(cacheKey, {
+          grenade,
+          cacheKey,
+          renderState,
+          durationMs,
+          firstMissingAt: now,
         });
+      }
+    };
+
+    cacheRef.current.previousThrown.forEach((grenade, cacheKey) => {
+      if (!incomingThrownKeys.has(cacheKey)) {
+        registerThrownPulse(grenade, cacheKey);
+      }
+    });
+
+    const missingGraceMs = getPulseMissingGraceMs(settings);
+    cacheRef.current.pendingThrownDisappearances.forEach((pending, cacheKey) => {
+      if (incomingThrownKeys.has(cacheKey)) {
+        cacheRef.current.pendingThrownDisappearances.delete(cacheKey);
+        return;
+      }
+
+      if (now - pending.firstMissingAt < missingGraceMs) {
+        return;
+      }
+
+      cacheRef.current.pulses.push({
+        ...pending.grenade,
+        renderState: pending.renderState,
+        cacheKey: `${pending.renderState}:${cacheKey}:${now}`,
+        expiresAt: now + pending.durationMs,
       });
-    }
+
+      cacheRef.current.pendingThrownDisappearances.delete(cacheKey);
+    });
 
     cacheRef.current.previousThrown = new Map(
       incomingThrown.map((grenade) => {
@@ -143,7 +197,7 @@ const GrenadeLayer = ({ grenadeData, mapData, settings, averageLatency, radarIma
           settings={settings}
           averageLatency={averageLatency}
           radarImage={radarImage}
-          renderState={GRENADE_RENDER_STATE.FLASH_PULSE}
+          renderState={grenade.renderState}
         />
       ))}
     </>

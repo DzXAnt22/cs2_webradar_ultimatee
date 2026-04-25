@@ -137,9 +137,13 @@ bool f::grenades::get_smoke(c_smoke_grenade* smoke)
 
     m_grenade_data = {
         {"m_type", "smoke"},
+        {"type", "smokegrenade"},
         {"m_timeleft", dis_time},
+        {"time_left", dis_time},
         {"m_x", det_pos.m_x},
-        {"m_y", det_pos.m_y}
+        {"m_y", det_pos.m_y},
+        {"x", det_pos.m_x},
+        {"y", det_pos.m_y}
     };
 
     return true;
@@ -156,10 +160,6 @@ bool f::grenades::get_molo(c_molo_grenade* molo)
     if (dis_time <= 0.f)
         return false;
 
-    const auto vec_origin = get_entity_origin(molo);
-    if (vec_origin.is_zero())
-        return false;
-
     auto firePosLocal = nlohmann::json::array();
 
     const auto fireBurning = molo->m_bFireIsBurning();
@@ -174,15 +174,33 @@ bool f::grenades::get_molo(c_molo_grenade* molo)
         firePosLocal.push_back({ firePositions[i].m_x, firePositions[i].m_y });
     }
 
+    auto vec_origin = get_entity_origin(molo);
+    if (vec_origin.is_zero() && !firePosLocal.empty())
+    {
+        vec_origin = {
+            static_cast<float>(firePosLocal[0][0].get<double>()),
+            static_cast<float>(firePosLocal[0][1].get<double>()),
+            0.f
+        };
+    }
+
+    if (vec_origin.is_zero())
+        return false;
+
     if (firePosLocal.empty())
         firePosLocal.push_back({ vec_origin.m_x, vec_origin.m_y });
 
     m_grenade_data = {
         {"m_type", "molo"},
+        {"type", "inferno"},
         {"m_timeleft", dis_time},
+        {"time_left", dis_time},
         {"m_x", vec_origin.m_x},
         {"m_y", vec_origin.m_y},
-        {"m_firePositions", std::move(firePosLocal)}
+        {"x", vec_origin.m_x},
+        {"y", vec_origin.m_y},
+        {"m_firePositions", firePosLocal},
+        {"firePositions", firePosLocal}
     };
 
     return true;
@@ -208,8 +226,11 @@ bool f::grenades::get_thrown(c_base_grenade* nade)
 
     m_grenade_thrown_data = {
         {"m_type", grenade_type},
+        {"type", grenade_type},
         {"m_x", nadePos.m_x},
-        {"m_y", nadePos.m_y}
+        {"m_y", nadePos.m_y},
+        {"x", nadePos.m_x},
+        {"y", nadePos.m_y}
     };
 
     return true;

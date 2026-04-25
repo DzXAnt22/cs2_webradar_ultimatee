@@ -22,6 +22,17 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+@keyframes grenadeHeBlast {
+  0% { transform: scale(0.28); opacity: 0.95; }
+  65% { transform: scale(1); opacity: 0.58; }
+  100% { transform: scale(1.36); opacity: 0; }
+}
+
+@keyframes grenadeHeRing {
+  0% { transform: scale(0.35); opacity: 0.9; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
 .grenade-thrown-shell {
   display: flex;
   align-items: center;
@@ -40,7 +51,9 @@
 .grenade-smoke-outer,
 .grenade-smoke-inner,
 .grenade-fire-core,
-.grenade-flash-core {
+.grenade-flash-core,
+.grenade-he-core,
+.grenade-he-ring {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
@@ -63,6 +76,15 @@
   animation: grenadeFlashBurst 0.34s ease-out forwards;
 }
 
+.grenade-he-core {
+  animation: grenadeHeBlast 0.52s cubic-bezier(0.21, 0.77, 0.36, 1) forwards;
+}
+
+.grenade-he-ring {
+  border: 2px solid rgba(255, 122, 69, 0.9);
+  animation: grenadeHeRing 0.5s ease-out forwards;
+}
+
 .grenade-timer-chip {
   position: absolute;
   top: -1.35rem;
@@ -75,8 +97,8 @@
   border-radius: 9999px;
   padding: 0.3rem 0.45rem;
   white-space: nowrap;
-  background: rgba(5, 12, 21, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(5, 12, 21, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   color: #ffffff;
   backdrop-filter: blur(4px);
   pointer-events: none;

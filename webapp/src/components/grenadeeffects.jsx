@@ -14,9 +14,10 @@ const TimerChip = ({ value, visible }) => {
 const getNodeScale = (settings) => {
   const intensity = getGrenadeEffectIntensity(settings);
   return {
-    smoke: 3.2 * intensity,
-    fireNode: 1.2 * intensity,
+    smoke: 3.8 * intensity,
+    fireNode: 1.35 * intensity,
     flash: 3.6 * intensity,
+    hePulse: 4.2 * intensity,
   };
 };
 
@@ -72,22 +73,23 @@ const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLa
           height: `${scales.smoke}vw`,
           transform: `translate(${centerX}px, ${centerY}px) translate(-50%, -50%)`,
           transition: `transform ${transitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          zIndex: 26,
+          zIndex: 64,
           pointerEvents: "none",
         }}
       >
         <div
           className="grenade-smoke-outer"
           style={{
-            backgroundColor: highContrast ? "rgba(248, 250, 252, 0.35)" : "rgba(148, 163, 184, 0.35)",
+            backgroundColor: highContrast ? "rgba(250, 250, 250, 0.62)" : "rgba(203, 213, 225, 0.52)",
+            border: `1px solid ${highContrast ? "rgba(255, 255, 255, 0.85)" : "rgba(226, 232, 240, 0.68)"}`,
             filter: `blur(${settings?.grenadePerformanceMode ? 2 : 5}px)`,
           }}
         />
         <div
           className="grenade-smoke-inner"
           style={{
-            inset: "12%",
-            backgroundColor: highContrast ? "rgba(255,255,255,0.28)" : "rgba(203, 213, 225, 0.24)",
+            inset: "14%",
+            backgroundColor: highContrast ? "rgba(255,255,255,0.5)" : "rgba(226, 232, 240, 0.38)",
             filter: `blur(${settings?.grenadePerformanceMode ? 1 : 4}px)`,
           }}
         />
@@ -115,7 +117,7 @@ const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLa
                 height: `${scales.fireNode}vw`,
                 transform: `translate(${fireX}px, ${fireY}px) translate(-50%, -50%)`,
                 transition: `transform ${transitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-                zIndex: 30,
+                zIndex: 70,
                 pointerEvents: "none",
               }}
             >
@@ -123,10 +125,10 @@ const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLa
                 className="grenade-fire-core"
                 style={{
                   background:
-                    "radial-gradient(circle, rgba(255,248,188,0.88) 8%, rgba(255,133,32,0.85) 45%, rgba(255,67,20,0.55) 100%)",
+                    "radial-gradient(circle, rgba(255,248,188,0.9) 8%, rgba(255,133,32,0.92) 45%, rgba(255,67,20,0.62) 100%)",
                   boxShadow: highContrast
-                    ? "0 0 20px rgba(255, 255, 255, 0.8)"
-                    : "0 0 18px rgba(255, 87, 34, 0.65)",
+                    ? "0 0 22px rgba(255, 255, 255, 0.85)"
+                    : "0 0 20px rgba(255, 87, 34, 0.78)",
                 }}
               />
             </div>
@@ -138,7 +140,7 @@ const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLa
           style={{
             transform: `translate(${centerX}px, ${centerY}px) translate(-50%, -50%)`,
             transition: `transform ${transitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-            zIndex: 32,
+            zIndex: 74,
             pointerEvents: "none",
           }}
         >
@@ -156,7 +158,7 @@ const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLa
           width: `${scales.flash}vw`,
           height: `${scales.flash}vw`,
           transform: `translate(${centerX}px, ${centerY}px) translate(-50%, -50%)`,
-          zIndex: 52,
+          zIndex: 82,
           pointerEvents: "none",
         }}
       >
@@ -167,6 +169,38 @@ const GrenadeEffects = ({ grenadeData, renderState, mapData, settings, averageLa
             boxShadow: highContrast
               ? "0 0 40px rgba(255, 255, 255, 0.95)"
               : "0 0 28px rgba(255, 240, 180, 0.7)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (renderState === GRENADE_RENDER_STATE.HE_PULSE) {
+    return (
+      <div
+        className="absolute grenade-he-shell"
+        style={{
+          width: `${scales.hePulse}vw`,
+          height: `${scales.hePulse}vw`,
+          transform: `translate(${centerX}px, ${centerY}px) translate(-50%, -50%)`,
+          zIndex: 80,
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          className="grenade-he-core"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(255, 248, 220, 0.92) 0%, rgba(255, 140, 66, 0.72) 40%, rgba(255, 72, 0, 0.34) 66%, rgba(255, 72, 0, 0) 100%)",
+            boxShadow: highContrast
+              ? "0 0 34px rgba(255, 255, 255, 0.9)"
+              : "0 0 26px rgba(255, 110, 64, 0.85)",
+          }}
+        />
+        <div
+          className="grenade-he-ring"
+          style={{
+            borderColor: highContrast ? "rgba(255,255,255,0.92)" : "rgba(255, 122, 69, 0.9)",
           }}
         />
       </div>
