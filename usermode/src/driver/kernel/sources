@@ -1,0 +1,19 @@
+# CS2 WebRadar Kernel Driver Build File
+# WDK Build System
+
+TARGETNAME = Cs2WebRadar
+TARGETTYPE = DRIVER
+
+TARGETPATH = $(OBJ_PATH)\..\bin
+OBJPATH = $(OBJ_PATH)
+
+SOURCES = driver.cpp
+
+# Include paths
+INCLUDES = ..\shared
+
+# Additional compile flags
+C_FLAGS = /D_KERNEL_MODE /DNDIS_MINIPORT_DRIVER /Zd
+
+# PRECOMPILED_CXX = 1
+# PRECOMPILED_CXX_CLEAN = *.pch

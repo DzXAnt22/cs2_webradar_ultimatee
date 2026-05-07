@@ -44,6 +44,8 @@
     <ClInclude Include="src\core\schema.hpp" />
     <ClInclude Include="src\sdk\datatypes\utl_ts_hash.hpp" />
     <ClInclude Include="src\driver\driver.hpp" />
+    <ClInclude Include="src\driver\shared\Ioctl.h" />
+    <ClInclude Include="src\driver\kernel_bridge.h" />
     <ClInclude Include="src\sdk\interfaces\game_entity_system.hpp" />
     <ClInclude Include="src\sdk\interfaces\global_vars.hpp" />
     <ClInclude Include="src\features\features.hpp" />
@@ -83,6 +85,7 @@
     <ClCompile Include="src\utils\memory\win32_provider.cpp" />
     <ClCompile Include="src\utils\memory\kernel_provider.cpp" />
     <ClCompile Include="src\utils\utils.cpp" />
+    <ClCompile Include="src\driver\kernel_bridge.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="readme.md" />
