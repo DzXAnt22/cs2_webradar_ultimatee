@@ -2,6 +2,7 @@
 
 #include "i_memory_provider.hpp"
 #include "memory.hpp"
+#include "../../driver/kernel_bridge.h"
 
 #include <cstdint>
 #include <optional>
@@ -24,5 +25,5 @@ private:
 
     bool m_initialized = false;
     uint32_t m_process_id = 0;
-    void* m_device_handle = nullptr;
+    kernel_bridge* m_bridge = nullptr;
 };

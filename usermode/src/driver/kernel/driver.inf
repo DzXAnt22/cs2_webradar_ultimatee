@@ -1,0 +1,50 @@
+; CS2 WebRadar Kernel Driver INF file
+; This file is used for driver installation
+
+[Version]
+Signature = "$Windows NT$"
+Provider = %ProviderName%
+DriverVer = 01/01/2025, 1.0.0.1
+CatalogFile = driver.cat
+Class = %ClassName%
+ClassGuid = %ClassGuid%
+
+[Manufacturer]
+%ManufacturerName% = StdSection
+
+[StdSection]
+%DriverDescription% = DriverInstall, Cs2WebRadar
+
+[DestinationDirs]
+DefaultDestDir = 12
+DriverBootCopyFiles = 12
+
+[SourceDisksNames]
+1 = %DiskDescription%, "", ""
+
+[SourceDisksFiles]
+Cs2WebRadar.sys = 1
+
+[DriverInstall]
+CopyFiles = DriverBootCopyFiles
+
+[DriverInstall.Services]
+AddService = Cs2WebRadar, %ServiceType%, DriverService
+
+[DriverService]
+ServiceType = %ServiceType%
+StartType = SERVICE_SYSTEM_START
+ErrorControl = %ErrorControlCritical%
+ServiceBinary = %12%\Cs2WebRadar.sys
+DisplayName = %DriverDescription%
+Description = CS2 WebRadar Kernel Driver
+
+[Strings]
+ProviderName = "CS2 WebRadar"
+ManufacturerName = "CS2 WebRadar"
+DriverDescription = "CS2 WebRadar Kernel Driver"
+ClassName = "Kernel Driver"
+ClassGuid = "{4E36E97B-E29E-4A2A-BF38-C1234F12345A}"
+DiskDescription = "CS2 WebRadar Driver Disk"
+ServiceType = 0x00000001
+ErrorControlCritical = 0x00000003
