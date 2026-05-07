@@ -5,18 +5,21 @@
 // Global device object pointer
 PDEVICE_OBJECT g_device_object = nullptr;
 
-// Driver entry point
-extern "C" NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
+// Real driver entry point
+extern "C" NTSTATUS RealDriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 {
     UNREFERENCED_PARAMETER(RegistryPath);
 
     NTSTATUS status;
 
     // Create the device
+    UNICODE_STRING device_name;
+    RtlInitUnicodeString(&device_name, DEVICE_NAME);
+
     status = IoCreateDevice(
         DriverObject,
         0,
-        nullptr,
+        &device_name,
         FILE_DEVICE_CS2_WEBRADAR,
         FILE_DEVICE_SECURE_OPEN,
         FALSE,
@@ -28,10 +31,10 @@ extern "C" NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_
     }
 
     // Create symbolic link for user-mode access
-    status = IoCreateSymbolicLink(
-        const_cast<PUNICODE_STRING>(reinterpret_cast<const UNICODE_STRING*>(DEVICE_SYMBOLIC_LINK)),
-        const_cast<PUNICODE_STRING>(reinterpret_cast<const UNICODE_STRING*>(DEVICE_NAME))
-    );
+    UNICODE_STRING symbolic_link;
+    RtlInitUnicodeString(&symbolic_link, DEVICE_SYMBOLIC_LINK);
+
+    status = IoCreateSymbolicLink(&symbolic_link, &device_name);
 
     if (!NT_SUCCESS(status)) {
         IoDeleteDevice(g_device_object);
@@ -52,13 +55,37 @@ extern "C" NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_
     return STATUS_SUCCESS;
 }
 
+// Driver entry point that supports both normal loading and kdmapper
+extern "C" NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
+{
+    // If RegistryPath is not NULL and it's a valid pointer, we're likely being loaded normally
+    // We check if DriverObject is valid and has the correct type
+    if (DriverObject && RegistryPath && 
+        MmIsAddressValid(DriverObject) && 
+        DriverObject->Type == 11 && 
+        DriverObject->Size == sizeof(DRIVER_OBJECT)) 
+    {
+        return RealDriverEntry(DriverObject, RegistryPath);
+    }
+
+    // Otherwise, we assume we're being mapped by kdmapper
+    // In this case, we create our own driver object
+    UNICODE_STRING driver_name;
+    RtlInitUnicodeString(&driver_name, L"\\Driver\\Cs2WebRadar");
+    
+    return IoCreateDriver(&driver_name, &RealDriverEntry);
+}
+
 // Driver unload routine
 void DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
+    UNREFERENCED_PARAMETER(DriverObject);
+
     if (g_device_object) {
-        IoDeleteSymbolicLink(
-            const_cast<PUNICODE_STRING>(reinterpret_cast<const UNICODE_STRING*>(DEVICE_SYMBOLIC_LINK))
-        );
+        UNICODE_STRING symbolic_link;
+        RtlInitUnicodeString(&symbolic_link, DEVICE_SYMBOLIC_LINK);
+        
+        IoDeleteSymbolicLink(&symbolic_link);
         IoDeleteDevice(g_device_object);
         g_device_object = nullptr;
     }

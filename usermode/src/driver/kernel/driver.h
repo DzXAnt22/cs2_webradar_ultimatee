@@ -2,8 +2,12 @@
 
 #include <ntifs.h>
 
-// Driver entry point
+// Driver entry points
 extern "C" NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath);
+extern "C" NTSTATUS RealDriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath);
+
+// Undocumented function to create a driver object
+extern "C" NTSTATUS IoCreateDriver(PUNICODE_STRING DriverName, PDRIVER_INITIALIZE InitializationFunction);
 
 // Driver unload routine
 void DriverUnload(_In_ PDRIVER_OBJECT DriverObject);
