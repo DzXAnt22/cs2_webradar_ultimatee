@@ -12,10 +12,10 @@ Credits: [Claudv](https://github.com/clauadv) - Thanks for creating the base
 
 ## usage
 - in the root folder, run `install.bat` to install dependencies
-- in the root folder, run `start.bat` to start the webapp
-- in `usermode` project, run `cs2_webradar.sln`
-- in visual studio's toolbar, hover on `Build` and press `Build Solution` or press `Ctrl + Shift + B`
-- in `release` folder, run `usermode.exe` and, in your browser navigate to `localhost:5173` <br>
+- build the `usermode` project in Visual Studio (Release/x64)
+- place `kdmapper.exe` and your driver (named `driver.sys` or `Cs2WebRadar.sys`) in the root folder
+- in the root folder, run `start.bat` as Administrator to start everything (driver mapping, webapp, and usermode app)
+- in your browser, navigate to `localhost:5173`
 
 ## sharing
 - after you built `usermode` project, open `config.json` and change `m_use_localhost` to `false`
