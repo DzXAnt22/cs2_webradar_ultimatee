@@ -51,14 +51,31 @@ int c_memory::setup()
     this->m_id = process_id.value();
 
     if (!m_provider) {
-        m_provider = std::make_unique<c_win32_provider>();
-        m_provider_type = memory::provider_type::win32;
-    }
+        // Try kernel provider first (highest priority)
+        auto kernel = std::make_unique<c_kernel_provider>();
+        if (kernel->initialize(m_id)) {
+            m_provider = std::move(kernel);
+            m_provider_type = memory::provider_type::kernel;
+            LOG_INFO("Using kernel driver for memory operations.");
+        }
+        else {
+            LOG_INFO("Kernel driver not available or failed to initialize, falling back to Win32 provider.");
+            m_provider = std::make_unique<c_win32_provider>();
+            m_provider_type = memory::provider_type::win32;
 
-    if (!m_provider->initialize(m_id)) {
-        LOG_ERROR("Failed to initialize memory provider.");
-        m_provider.reset();
-        return 3;
+            if (!m_provider->initialize(m_id)) {
+                LOG_ERROR("Failed to initialize Win32 memory provider.");
+                m_provider.reset();
+                return 3;
+            }
+        }
+    }
+    else if (!m_provider->is_initialized()) {
+        if (!m_provider->initialize(m_id)) {
+            LOG_ERROR("Failed to re-initialize memory provider.");
+            m_provider.reset();
+            return 3;
+        }
     }
 
     return 0;
