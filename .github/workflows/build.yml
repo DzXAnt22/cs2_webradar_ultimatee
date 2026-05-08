@@ -1,0 +1,76 @@
+name: Build Binaries
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+  workflow_dispatch:
+
+jobs:
+  build-usermode:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Usermode
+        working-directory: usermode
+        run: msbuild cs2_webradar.sln /p:Configuration=release /p:Platform=x64
+
+      - name: Upload Usermode Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: usermode-exe
+          path: usermode/release/usermode.exe
+
+  build-driver:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WDK
+        run: |
+          # The windows-latest runner already has WDK installed, but we might need to ensure the VCTargets are correct.
+          # Usually it's fine.
+
+      - name: Build Driver
+        working-directory: usermode/src/driver/kernel
+        run: msbuild driver.sln /p:Configuration=Release /p:Platform=x64
+
+      - name: Upload Driver Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-sys
+          path: usermode/src/driver/kernel/x64/Release/Cs2WebRadar.sys
+
+  create-release:
+    needs: [build-usermode, build-driver]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.ref, 'tags')
+    steps:
+      - name: Download Usermode
+        uses: actions/download-artifact@v4
+        with:
+          name: usermode-exe
+          path: release-bin
+
+      - name: Download Driver
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-sys
+          path: release-bin
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-bin/usermode.exe
+            release-bin/Cs2WebRadar.sys
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
